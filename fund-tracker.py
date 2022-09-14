@@ -21,7 +21,20 @@ def scrape_html(html):
         if len(script.contents) != 0 and "MainContent_FonFiyatGrafik" in script.contents[0]:
             series = re.search('series: \[\{\"name\":\"Fiyat\",\"data\":\[(.+?)\]\}\]',script.contents[0]).group(1)
             values = series.split(",")
-            print(values)
+            prices = [float(i) for i in values]
+            print(prices)
+            calculate_sortino_ratio(prices)
+
+
+def calculate_sortino_ratio(prices):
+    downside = []
+    counter = 0
+    for price in prices:
+        if counter != 0:
+            if price - prices[counter - 1] < 0:
+                downside.append(price - prices[counter - 1])
+        counter = counter + 1
+    print(downside)
 
 
 
