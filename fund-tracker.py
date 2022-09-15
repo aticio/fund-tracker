@@ -6,6 +6,12 @@ from bs4 import BeautifulSoup
 import statistics
 import pandas as pd
 from datetime import datetime
+import legitindicators as li
+import matplotlib
+import matplotlib.pyplot as plt
+import sys
+
+matplotlib.use('Agg')
 
 FUND_DATA_URL = "https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod="
 
@@ -14,9 +20,23 @@ def main():
     for fund in funds:
         html = get_fund_data(fund)
         data = scrape_html(html)
-        sortino = calculate_sortino_ratio(data)
-        print(fund, sortino)
+        # sortino = calculate_sortino_ratio(data)
+        # print(fund, sortino)
+        data = apply_super_smoother(data)
+        if len(data.index) > 20:
+            data = data.iloc[20: , :]
+            if data["price"].iloc[-1] - data["ss"].iloc[-1] > 0:
+                data.plot(x="date", y=["price", "ss"])
+                plt.show()
+                plt.savefig(f"images/{fund}.png")
+
         
+
+def apply_super_smoother(data):
+    prices = data["price"]
+    ss = li.super_smoother(prices, 20)
+    data["ss"] = ss
+    return data
 
 
 def scrape_html(html):
