@@ -1,7 +1,11 @@
+from datetime import date, datetime
 from importlib.resources import contents
 from urllib.request import urlopen
 import re
 from bs4 import BeautifulSoup
+import statistics
+import pandas as pd
+from datetime import datetime
 
 FUND_DATA_URL = "https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod="
 
@@ -9,12 +13,13 @@ def main():
     funds = get_funds()
     for fund in funds:
         html = get_fund_data(fund)
-        scrape_html(html)
-        break
+        data = scrape_html(html)
+        sortino = calculate_sortino_ratio(data)
+        print(fund, sortino)
+        
 
 
 def scrape_html(html):
-
     soup = BeautifulSoup(html, "html.parser")
     scripts = soup.find_all("script")
     for script in scripts:
@@ -22,19 +27,42 @@ def scrape_html(html):
             series = re.search('series: \[\{\"name\":\"Fiyat\",\"data\":\[(.+?)\]\}\]',script.contents[0]).group(1)
             values = series.split(",")
             prices = [float(i) for i in values]
-            print(prices)
-            calculate_sortino_ratio(prices)
 
+            date_string = re.search('xAxis: \[\{\"categories\":\[(.+?)\]',script.contents[0]).group(1)
+            date_string_list = date_string.split(",")
 
-def calculate_sortino_ratio(prices):
-    downside = []
-    counter = 0
-    for price in prices:
-        if counter != 0:
-            if price - prices[counter - 1] < 0:
-                downside.append(price - prices[counter - 1])
-        counter = counter + 1
-    print(downside)
+            dates = []
+            for date_str in date_string_list:
+                date_str = date_str[1:len(date_str) - 1]
+                date_obj = datetime.strptime(date_str, '%d.%m.%Y')
+                dates.append(date_obj)
+            
+            data = {'date': dates, 'price': prices}
+            df = pd.DataFrame(data)
+            return df
+            
+
+def calculate_sortino_ratio(data):
+    prices = data["price"]
+
+    delta = ((prices.iloc[-1] - prices.iloc[0]) * 100) / prices.iloc[0]
+    return delta
+
+    # For multiple years
+    # sortino_record = []
+    # downside = []
+    # counter = 0
+    # for price in prices:
+    #     if counter != 0:
+    #         sortino_record.append(price - prices[counter - 1])
+    #         if price - prices[counter - 1] < 0:
+    #             downside.append(price - prices[counter - 1])
+    #     counter = counter + 1
+    # downside_std = statistics.stdev(downside)
+    # mean_return = sum(sortino_record) / len(sortino_record)
+
+    # sortino = (mean_return - 0.1) / downside_std
+    # print(sortino)
 
 
 
